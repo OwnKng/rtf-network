@@ -16,7 +16,6 @@ const halfHeight = height * 0.5
 const halfDepth = depth * 0.5
 
 const Sketch = () => {
-  const particlesRef = useRef<THREE.Points>(null!)
   const linesRef = useRef<THREE.LineSegments>(null!)
   const groupRef = useRef<THREE.Group>(null!)
 
@@ -116,11 +115,8 @@ const Sketch = () => {
     }
 
     linesRef.current.geometry.setDrawRange(0, numConnected * 2)
-    particlesRef.current.geometry.attributes.position.needsUpdate = true
     linesRef.current.geometry.attributes.position.needsUpdate = true
     linesRef.current.geometry.attributes.color.needsUpdate = true
-
-    groupRef.current.rotation.x += 0.001
   })
 
   return (
@@ -139,15 +135,6 @@ const Sketch = () => {
           blending={THREE.AdditiveBlending}
         />
       </lineSegments>
-      <points ref={particlesRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach={"attributes-position"}
-            args={[particlePositions, 3]}
-          />
-        </bufferGeometry>
-        <pointsMaterial size={0.01} transparent={true} opacity={0} />
-      </points>
     </group>
   )
 }
