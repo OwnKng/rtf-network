@@ -1,6 +1,7 @@
 .App {
   width: 100vw;
   height: 100vh;
+  background-color: rgb(30, 33, 36);
 }
 
 .background {
@@ -12,7 +13,7 @@
   z-index: -10;
   color: white;
   font-size: 3vw;
-  background-color: rgb(30, 33, 36);
+
   display: flex;
   align-items: center;
   justify-content: center;

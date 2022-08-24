@@ -1,19 +1,24 @@
-import { useFrame, useThree } from "@react-three/fiber"
+import { useFrame } from "@react-three/fiber"
 import { useMemo, useRef } from "react"
 import * as THREE from "three"
 
-const numberOfParticles = 200
+const numberOfParticles = 400
 const numberOfSegments = numberOfParticles ** 2
-const minDistance = 2
-const maxConnections = 5
+const minDistance = 0.6
+const maxConnections = 20
 
-const width = 10
-const height = 10
-const depth = 10
+const width = 14
+const height = 2
+const depth = 1
+
+const halfWidth = width * 0.5
+const halfHeight = height * 0.5
+const halfDepth = depth * 0.5
 
 const Sketch = () => {
   const particlesRef = useRef<THREE.Points>(null!)
   const linesRef = useRef<THREE.LineSegments>(null!)
+  const groupRef = useRef<THREE.Group>(null!)
 
   let [particlePositions, linePositions, particlesData, lineColors] =
     useMemo(() => {
@@ -21,9 +26,9 @@ const Sketch = () => {
         new Array(numberOfParticles)
           .fill(0)
           .flatMap(() => [
-            Math.random() * width,
-            Math.random() * height,
-            Math.random() * depth,
+            Math.random() * width - width * 0.5,
+            Math.random() * height - height * 0.5,
+            Math.random() * depth - depth * 0.5,
           ])
       )
 
@@ -37,7 +42,7 @@ const Sketch = () => {
       }))
 
       const linePositions = new Float32Array(numberOfSegments * 3)
-      const lineColors = new Float32Array(numberOfSegments * 3)
+      const lineColors = new Float32Array(numberOfSegments * 4)
 
       return [particlePositions, linePositions, particlesData, lineColors]
     }, [])
@@ -61,14 +66,13 @@ const Sketch = () => {
         particlePositions[i * 3 + 2] += velocity.z
 
         //_ check the edges
-        if (particlePositions[i * 3] > width) velocity.x *= -1
-        if (particlePositions[i * 3] < 0) velocity.x *= -1
 
-        if (particlePositions[i * 3 + 1] > height) velocity.y *= -1
-        if (particlePositions[i * 3 + 1] < 0) velocity.y *= -1
-
-        if (particlePositions[i * 3 + 2] > depth) velocity.z *= -1
-        if (particlePositions[i * 3 + 2] < 0) velocity.z *= -1
+        // prettier-ignore
+        if (particlePositions[i * 3] > halfWidth || particlePositions[i * 3] < -halfWidth) velocity.x *= -1
+        // prettier-ignore
+        if (particlePositions[i * 3 + 1] > halfHeight || particlePositions[i * 3 + 1] < -halfHeight) velocity.y *= -1
+        // prettier-ignore
+        if (particlePositions[i * 3 + 2] > halfDepth || particlePositions[i * 3 + 2] < -halfDepth) velocity.z *= -1
 
         //_ calculate distance
         const dx = particlePositions[i * 3] - particlePositions[j * 3]
@@ -99,7 +103,9 @@ const Sketch = () => {
           lineColors[colorsPosition++] = alpha
           lineColors[colorsPosition++] = alpha
           lineColors[colorsPosition++] = alpha
+          lineColors[colorsPosition++] = alpha
 
+          lineColors[colorsPosition++] = alpha
           lineColors[colorsPosition++] = alpha
           lineColors[colorsPosition++] = alpha
           lineColors[colorsPosition++] = alpha
@@ -113,20 +119,19 @@ const Sketch = () => {
     particlesRef.current.geometry.attributes.position.needsUpdate = true
     linesRef.current.geometry.attributes.position.needsUpdate = true
     linesRef.current.geometry.attributes.color.needsUpdate = true
+
+    groupRef.current.rotation.x += 0.001
   })
 
   return (
-    <>
-      <lineSegments
-        ref={linesRef}
-        position={[-width / 2, -height / 2, -depth / 2]}
-      >
+    <group ref={groupRef}>
+      <lineSegments ref={linesRef}>
         <bufferGeometry drawRange={{ start: 0, count: 0 }}>
           <bufferAttribute
             attach={"attributes-position"}
             args={[linePositions, 3]}
           />
-          <bufferAttribute attach={"attributes-color"} args={[lineColors, 3]} />
+          <bufferAttribute attach={"attributes-color"} args={[lineColors, 4]} />
         </bufferGeometry>
         <lineBasicMaterial
           vertexColors
@@ -134,19 +139,16 @@ const Sketch = () => {
           blending={THREE.AdditiveBlending}
         />
       </lineSegments>
-      <points
-        ref={particlesRef}
-        position={[-width / 2, -height / 2, -depth / 2]}
-      >
+      <points ref={particlesRef}>
         <bufferGeometry>
           <bufferAttribute
             attach={"attributes-position"}
             args={[particlePositions, 3]}
           />
         </bufferGeometry>
-        <pointsMaterial size={0.05} alphaTest={0.5} />
+        <pointsMaterial size={0.01} transparent={true} opacity={0} />
       </points>
-    </>
+    </group>
   )
 }
 

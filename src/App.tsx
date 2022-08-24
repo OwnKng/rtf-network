@@ -15,9 +15,6 @@ const App = () => (
       <Rig />
       <Sketch />
     </Canvas>
-    <div className='background'>
-      <h1>Hello world!</h1>
-    </div>
   </div>
 )
 
