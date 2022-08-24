@@ -1,48 +1,60 @@
-import { useFrame } from "@react-three/fiber"
+import { useFrame, useThree } from "@react-three/fiber"
 import { useMemo, useRef } from "react"
 import * as THREE from "three"
 
-const numberOfParticles = 100
+const numberOfParticles = 200
 const numberOfSegments = numberOfParticles ** 2
-const minDistance = 1
+const minDistance = 2
+const maxConnections = 5
 
-const width = 5
-const height = 5
-const depth = 5
+const width = 10
+const height = 10
+const depth = 10
 
 const Sketch = () => {
   const particlesRef = useRef<THREE.Points>(null!)
   const linesRef = useRef<THREE.LineSegments>(null!)
 
-  let [particlePositions, linePositions, particlesVelocity] = useMemo(() => {
-    const particlePositions = Float32Array.from(
-      new Array(numberOfParticles)
-        .fill(0)
-        .flatMap(() => [
-          Math.random() * 5,
-          Math.random() * 5,
-          Math.random() * 5,
-        ])
-    )
+  let [particlePositions, linePositions, particlesData, lineColors] =
+    useMemo(() => {
+      const particlePositions = Float32Array.from(
+        new Array(numberOfParticles)
+          .fill(0)
+          .flatMap(() => [
+            Math.random() * width,
+            Math.random() * height,
+            Math.random() * depth,
+          ])
+      )
 
-    const particlesVelocity = Array.from(
-      { length: numberOfParticles },
-      () => new THREE.Vector3(0.001, 0.001, 0.001)
-    )
+      const particlesData = Array.from({ length: numberOfParticles }, () => ({
+        velocity: new THREE.Vector3(
+          0.0001 * (0.5 - Math.random()),
+          0.0001 * (0.5 - Math.random()),
+          0.0001 * (0.5 - Math.random())
+        ),
+        numberOfConnections: 0,
+      }))
 
-    const linePositions = new Float32Array(numberOfSegments * 3)
+      const linePositions = new Float32Array(numberOfSegments * 3)
+      const lineColors = new Float32Array(numberOfSegments * 3)
 
-    return [particlePositions, linePositions, particlesVelocity]
-  }, [])
+      return [particlePositions, linePositions, particlesData, lineColors]
+    }, [])
 
   useFrame(() => {
     let vertexPosition = 0
+    let colorsPosition = 0
     let numConnected = 0
 
+    particlesData = particlesData.map((p) => ({ ...p, numberOfConnections: 0 }))
+
     for (let i = 0; i < numberOfParticles; i++) {
+      const particleData = particlesData[i]
+
       for (let j = i + 1; j < numberOfParticles; j++) {
         //_ modify the positions
-        const velocity = particlesVelocity[i]
+        const velocity = particleData.velocity
 
         particlePositions[i * 3 + 0] += velocity.x
         particlePositions[i * 3 + 1] += velocity.y
@@ -64,8 +76,18 @@ const Sketch = () => {
         const dz = particlePositions[i * 3 + 2] - particlePositions[j * 3 + 2]
         const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
 
+        //_ calculate number of local connections
+        const nextParticleData = particlesData[j]
+
+        if (nextParticleData.numberOfConnections >= maxConnections) continue
+
         //_ draw lines
         if (dist < minDistance) {
+          particleData.numberOfConnections++
+          nextParticleData.numberOfConnections++
+
+          const alpha = 1.0 - dist / minDistance
+
           linePositions[vertexPosition++] = particlePositions[i * 3 + 0]
           linePositions[vertexPosition++] = particlePositions[i * 3 + 1]
           linePositions[vertexPosition++] = particlePositions[i * 3 + 2]
@@ -73,6 +95,14 @@ const Sketch = () => {
           linePositions[vertexPosition++] = particlePositions[j * 3 + 0]
           linePositions[vertexPosition++] = particlePositions[j * 3 + 1]
           linePositions[vertexPosition++] = particlePositions[j * 3 + 2]
+
+          lineColors[colorsPosition++] = alpha
+          lineColors[colorsPosition++] = alpha
+          lineColors[colorsPosition++] = alpha
+
+          lineColors[colorsPosition++] = alpha
+          lineColors[colorsPosition++] = alpha
+          lineColors[colorsPosition++] = alpha
 
           numConnected++
         }
@@ -82,14 +112,28 @@ const Sketch = () => {
     linesRef.current.geometry.setDrawRange(0, numConnected * 2)
     particlesRef.current.geometry.attributes.position.needsUpdate = true
     linesRef.current.geometry.attributes.position.needsUpdate = true
+    linesRef.current.geometry.attributes.color.needsUpdate = true
   })
 
   return (
     <>
-      <mesh>
-        <boxBufferGeometry args={[width, height, depth]} />
-        <meshBasicMaterial wireframe />
-      </mesh>
+      <lineSegments
+        ref={linesRef}
+        position={[-width / 2, -height / 2, -depth / 2]}
+      >
+        <bufferGeometry drawRange={{ start: 0, count: 0 }}>
+          <bufferAttribute
+            attach={"attributes-position"}
+            args={[linePositions, 3]}
+          />
+          <bufferAttribute attach={"attributes-color"} args={[lineColors, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial
+          vertexColors
+          transparent
+          blending={THREE.AdditiveBlending}
+        />
+      </lineSegments>
       <points
         ref={particlesRef}
         position={[-width / 2, -height / 2, -depth / 2]}
@@ -100,20 +144,8 @@ const Sketch = () => {
             args={[particlePositions, 3]}
           />
         </bufferGeometry>
-        <pointsMaterial size={0.1} />
+        <pointsMaterial size={0.05} alphaTest={0.5} />
       </points>
-      <lineSegments
-        ref={linesRef}
-        position={[-width / 2, -height / 2, -depth / 2]}
-      >
-        <bufferGeometry drawRange={{ start: 0, count: 0 }}>
-          <bufferAttribute
-            attach={"attributes-position"}
-            args={[linePositions, 3]}
-          />
-        </bufferGeometry>
-        <lineBasicMaterial color='teal' />
-      </lineSegments>
     </>
   )
 }
